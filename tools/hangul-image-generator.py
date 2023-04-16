@@ -8,8 +8,8 @@ import random
 
 import numpy
 from PIL import Image, ImageFont, ImageDraw
-from scipy.ndimage.interpolation import map_coordinates
-from scipy.ndimage.filters import gaussian_filter
+from scipy.ndimage import map_coordinates
+from scipy.ndimage import gaussian_filter
 
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))

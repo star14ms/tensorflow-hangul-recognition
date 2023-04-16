@@ -4,12 +4,12 @@ import argparse
 import io
 import os
 
-import tensorflow as tf
+# import tensorflow as tf
+import tensorflow.compat.v1 as tf
 from tensorflow.python.tools import freeze_graph
 from tensorflow.python.tools import optimize_for_inference_lib
 
-from rich.traceback import install
-install()
+tf.disable_v2_behavior()
 
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
@@ -31,11 +31,11 @@ num_classes = 2350
 
 
 def _parse_function(example):
-    features = tf.io.parse_single_example(
+    features = tf.parse_single_example(
         example,
         features={
-            'image/class/label': tf.io.FixedLenFeature([], tf.int64),
-            'image/encoded': tf.io.FixedLenFeature([], dtype=tf.string,
+            'image/class/label': tf.FixedLenFeature([], tf.int64),
+            'image/encoded': tf.FixedLenFeature([], dtype=tf.string,
                                                 default_value='')
         })
     label = features['image/class/label']
@@ -121,10 +121,10 @@ def main(label_file, tfrecords_dir, model_output_dir, num_train_epochs):
     print('Processing data...')
 
     tf_record_pattern = os.path.join(tfrecords_dir, '%s-*' % 'train')
-    train_data_files = tf.io.gfile.glob(tf_record_pattern)
+    train_data_files = tf.gfile.Glob(tf_record_pattern)
 
     tf_record_pattern = os.path.join(tfrecords_dir, '%s-*' % 'test')
-    test_data_files = tf.io.gfile.glob(tf_record_pattern)
+    test_data_files = tf.gfile.Glob(tf_record_pattern)
 
     # Create training dataset input pipeline.
     train_dataset = tf.data.TFRecordDataset(train_data_files) \
@@ -137,15 +137,11 @@ def main(label_file, tfrecords_dir, model_output_dir, num_train_epochs):
     # Create the model!
 
     # Placeholder to feed in image data.
-    # x = tf.placeholder(tf.float32, [None, IMAGE_WIDTH*IMAGE_HEIGHT],
-    #                    name=input_node_name)
-    x = tf.Variable(tf.ones(shape=[None, IMAGE_WIDTH*IMAGE_HEIGHT],
-                    name=input_node_name), validate_shape=False)
-
+    x = tf.placeholder(tf.float32, [None, IMAGE_WIDTH*IMAGE_HEIGHT],
+                       name=input_node_name)
     # Placeholder to feed in label data. Labels are represented as one_hot
     # vectors.
-    # y_ = tf.placeholder(tf.float32, [None, num_classes])
-    y_ = tf.Variable(tf.ones(shape=[None, num_classes]), validate_shape=False)
+    y_ = tf.placeholder(tf.float32, [None, num_classes])
 
     # Reshape the image back into two dimensions so we can perform convolution.
     x_image = tf.reshape(x, [-1, IMAGE_WIDTH, IMAGE_HEIGHT, 1])
@@ -188,8 +184,7 @@ def main(label_file, tfrecords_dir, model_output_dir, num_train_epochs):
     h_fc1 = tf.nn.relu(tf.matmul(h_pool_flat, W_fc1) + b_fc1)
 
     # Dropout layer. This helps fight overfitting.
-    # keep_prob = tf.placeholder(tf.float32, name=keep_prob_node_name)
-    keep_prob = tf.Variable(0.5, name=keep_prob_node_name, dtype=tf.float32, validate_shape=False)
+    keep_prob = tf.placeholder(tf.float32, name=keep_prob_node_name)
     h_fc1_drop = tf.nn.dropout(h_fc1, rate=1-keep_prob)
 
     # Classification layer.
@@ -202,7 +197,7 @@ def main(label_file, tfrecords_dir, model_output_dir, num_train_epochs):
 
     # Define our loss.
     cross_entropy = tf.reduce_mean(
-        tf.nn.softmax_cross_entropy_with_logits(
+        tf.nn.softmax_cross_entropy_with_logits_v2(
             labels=tf.stop_gradient(y_),
             logits=y
         )
@@ -212,8 +207,7 @@ def main(label_file, tfrecords_dir, model_output_dir, num_train_epochs):
     # rate of 0.0001 with AdamOptimizer. This utilizes someting
     # called the Adam algorithm, and utilizes adaptive learning rates and
     # momentum to get past saddle points.
-    var_list = [W_conv1, b_conv1, W_conv2, b_conv2, W_conv3, b_conv3, W_fc1, b_fc1, W_fc2, b_fc2]
-    train_step = tf.optimizers.Adam(0.0001).minimize(cross_entropy , var_list=var_list, tape=tf.GradientTape())
+    train_step = tf.train.AdamOptimizer(0.0001).minimize(cross_entropy)
 
     # Define accuracy.
     correct_prediction = tf.equal(tf.argmax(y, 1), tf.argmax(y_, 1))

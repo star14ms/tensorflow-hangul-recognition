@@ -11,6 +11,8 @@ import random
 import numpy as np
 import tensorflow as tf
 
+from rich.progress import track
+
 SCRIPT_PATH = os.path.dirname(os.path.abspath(__file__))
 
 # Default data paths.
@@ -86,11 +88,11 @@ class TFRecordsConverter(object):
 
     def write_tfrecords_file(self, output_path, indices):
         """Writes out TFRecords file."""
-        writer = tf.python_io.TFRecordWriter(output_path)
+        writer = tf.io.TFRecordWriter(output_path)
         for i in indices:
             filename = self.filenames[i]
             label = self.labels[i]
-            with tf.gfile.GFile(filename, 'rb') as f:
+            with tf.io.gfile.GFile(filename, 'rb') as f:
                 im_data = f.read()
 
             # Example is a data format that contains a key-value store, where
@@ -127,7 +129,7 @@ class TFRecordsConverter(object):
         files_per_shard = int(math.ceil(num_files_train /
                                         self.num_shards_train))
         start = 0
-        for i in range(1, self.num_shards_train):
+        for i in track(range(1, self.num_shards_train), total=self.num_shards_train):
             shard_path = os.path.join(self.output_dir,
                                       'train-{}.tfrecords'.format(str(i)))
             # Get a subset of indices to get only a subset of images/labels for
